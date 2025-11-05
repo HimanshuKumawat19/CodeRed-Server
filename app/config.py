@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
     
+    # RapidAPI 
+    RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY"," ")
+    RAPIDAPI_HOST: str = os.getenv("RAPIDAPI_HOST"," ")
+    
     # Application
     PROJECT_NAME: str = "CodeForge"
     VERSION: str = "1.0.0"
