@@ -5,7 +5,7 @@ from datetime import datetime
 # Base Schema: Common fields for a submission
 class SubmissionBase(BaseModel):
     """Common fields for a submission"""
-    languge_id: int
+    language_id: int
     source_code: str
     problem_id: Optional[int] = None
     match_id: Optional[int] = None
@@ -58,7 +58,7 @@ class SubmissionUpdate(BaseModel):
 
 class SubmissionResponse(SubmissionBase):
     """Full submission details sent back to the client"""
-    submission_id: int
+    Submission_id: int
     user_id: int
     verdict: str
     status_id: Optional[int] = None

@@ -1,0 +1,47 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Any
+
+# Import Schemas
+from app.schemas.submission import SubmissionCreate, SubmissionResponse
+from app.schemas.user import UserResponse
+
+# Import service
+from app.services.submission import submission_service
+
+# Import dependencies (auth and db)
+from app.core.auth import get_current_user
+from app.database import get_db
+
+router = APIRouter()
+
+@router.post(
+    "/submit",
+    response_model=SubmissionResponse,
+    summary="Create a new code submission"
+)
+async def submit_code(
+    submission_in: SubmissionCreate,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user)
+) -> Any:
+    """
+    Receives code from frontend,send to submission service to be
+    executed by Judge0 and returns final result
+
+    - **submission_in**: The code, language ID, and stdin from the user.
+    - **current_user**: The user data, injected by the auth dependency.
+    """
+
+    result = await submission_service.create_and_run_submission(
+        db=db,
+        submission_in=submission_in,
+        user_id=current_user.user_id # Pass user id to the service
+    )
+
+    # Check if the service returned an error
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=500,detail=result["error"])
+    
+    # All good!
+    return result

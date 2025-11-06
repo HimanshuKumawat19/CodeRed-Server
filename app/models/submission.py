@@ -7,11 +7,11 @@ class Submission(Base):
 
     Submission_id = Column(Integer,primary_key=True,index=True)
     # foreign key relationship
-    user_id = Column(Integer,ForeignKey("user.id"),nullable=False, index=True)
+    user_id = Column(Integer,nullable=False, index=True)
     # Add relationship in future
     problem_id = Column(Integer,nullable=False, index=True)
     match_id = Column(Integer,nullable=False, index=True)
-    
+    token = Column(String, unique=True, index=True, nullable=True)
     language_id = Column(Integer,nullable=False, index=True)
     source_code = Column(TEXT,nullable=False)
     verdict = Column(String,nullable=False)

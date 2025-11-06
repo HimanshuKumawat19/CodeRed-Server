@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.models.user import User
+from app.models.submission import Submission
+
 from app.config import settings
 from app.database import engine, Base
 
@@ -50,14 +53,26 @@ def setup_routes(app: FastAPI) -> None:
     
     # REST API only - no GraphQL!
     from app.api.v1.endpoints import auth
-    app.include_router(auth.router, prefix="/api/v1")
+    from app.api.v1.endpoints import submission
+    # authentication APIs
+    app.include_router(
+        auth.router, 
+        prefix="/api/v1",
+        tags=["Auth"]
+    )
+    # code Submission APIs
+    app.include_router(
+        submission.router,
+        prefix="/api/v1/submission",
+        tags=["Submissions"]
+    )
 
 def setup_events(app: FastAPI) -> None:
     """Setup startup/shutdown events"""
     
     @app.on_event("startup")
     async def startup_event():
-        from app.models.user import User  # Import inside function to avoid circular imports
+        
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         print("✅ Database tables created successfully")
