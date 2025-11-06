@@ -1,0 +1,95 @@
+from pydantic import BaseModel,Field
+from typing import Optional
+from datetime import datetime
+
+# Base Schema: Common fields for a submission
+class SubmissionBase(BaseModel):
+    """Common fields for a submission"""
+    language_id: int
+    source_code: str
+    problem_id: Optional[int] = None
+    match_id: Optional[int] = None
+
+# Create Schema: Data from frontend to create a submission
+class SubmissionCreate(BaseModel):
+    """Data required to create a new submission"""
+    source_code: str = Field(
+        ...,
+        min_length=10,
+        description="Source code to be executed"
+    )
+
+    language_id: int = Field(
+        ...,
+        description="Id of the languade"
+    )   
+
+    stdin: Optional[str] = Field(
+        None,
+        description="Standard input for a 'Run' operation"
+    )
+    
+    problem_id: Optional[int] = Field(
+        None,
+        description="Id of the problem being submitted"
+    )
+
+    match_id: Optional[int] = Field(
+        None,
+        description="Id of the match"
+    )
+
+# Update schema: Data to UPDATE a submission
+
+class SubmissionUpdate(BaseModel):
+    """Fields to update after judge0 processing"""
+    token: Optional[str] = None
+    verdict: Optional[str] = None
+    status_id: Optional[int] = None
+    execution_time: Optional[float] = None
+    memory_used: Optional[int] = None
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
+    compile_output: Optional[str] = None
+    test_cases_passed: Optional[int] = None
+    total_test_cases: Optional[int] = None
+
+# Response Schema: Data send Back to frontend
+
+class SubmissionResponse(SubmissionBase):
+    """Full submission details sent back to the client"""
+    Submission_id: int
+    user_id: int
+    verdict: str
+    status_id: Optional[int] = None
+    execution_time: Optional[float] = None
+    memory_used: Optional[int] = None
+
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
+    compile_output: Optional[str] = None
+
+    test_cases_passed: Optional[int] = None
+    total_test_cases: Optional[int] = None
+
+    submitted_at: datetime
+    judged_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True  #(ALlow pydantic to read the data from the ORM models)
+
+# Simple Response Schema: For lists
+
+class SubmissionSimpleResponse(BaseModel):
+    """A lightweight response for lists"""
+    Submission_id: int
+    user_id: int
+    problem_id: Optional[int] = None
+    verdict: str
+    language_id: int
+    execution_time: Optional[float] = None
+    memory_used: Optional[int] = None
+    submitted_at: datetime
+
+    class Config:
+        from_attributes = True
