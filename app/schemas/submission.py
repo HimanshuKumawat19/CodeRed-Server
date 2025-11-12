@@ -1,6 +1,7 @@
 from pydantic import BaseModel,Field
-from typing import Optional
+from typing import Optional,List
 from datetime import datetime
+from .test_cases import TestCasesSampleResponse
 
 # Base Schema: Common fields for a submission
 class SubmissionBase(BaseModel):
@@ -54,6 +55,21 @@ class SubmissionUpdate(BaseModel):
     test_cases_passed: Optional[int] = None
     total_test_cases: Optional[int] = None
 
+class CodeRunRequest(BaseModel):
+    source_code: str = Field(
+        ...,
+        min_length=10
+    )
+    language_id: int
+    stdin: str = Field(
+        "",
+        description="Standard input for the code"
+    )
+
+class SolutionSubmitRequest(BaseModel):
+    source_code: str = Field(...,min_length=10)
+    language_id: int
+    problem_id: int
 # Response Schema: Data send Back to frontend
 
 class SubmissionResponse(SubmissionBase):

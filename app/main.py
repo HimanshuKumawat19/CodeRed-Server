@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models.user import User
 from app.models.submission import Submission
 
+
 from app.config import settings
 from app.database import engine, Base
 
@@ -54,6 +55,7 @@ def setup_routes(app: FastAPI) -> None:
     # REST API only - no GraphQL!
     from app.api.v1.endpoints import auth
     from app.api.v1.endpoints import submission
+    from app.api.v1.endpoints import problem
     # authentication APIs
     app.include_router(
         auth.router, 
@@ -66,7 +68,12 @@ def setup_routes(app: FastAPI) -> None:
         prefix="/api/v1/submission",
         tags=["Submissions"]
     )
-
+    # problem APIs
+    app.include_router(
+        problem.router,
+        prefix="/api/v1",
+        tags=["Problems"]
+    )
 def setup_events(app: FastAPI) -> None:
     """Setup startup/shutdown events"""
     

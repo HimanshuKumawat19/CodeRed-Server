@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Any
 
 # Import Schemas
-from app.schemas.submission import SubmissionCreate, SubmissionResponse
+from app.schemas.submission import CodeRunRequest,SolutionSubmitRequest, SubmissionResponse
 from app.schemas.user import UserResponse
 
 # Import service
@@ -15,13 +15,28 @@ from app.database import get_db
 
 router = APIRouter()
 
+# For Run
+@router.post(
+    "/run",
+    summary="Run code with sample input (does not save)"
+)
+async def run_code(
+    run_request: CodeRunRequest,
+    db: Session = Depends(get_db)
+):
+    result = await submission_service.run_code_service(run_request)
+    if "error" in result:
+        raise HTTPException(status_code=500,detail=result)
+    return result
+
+# For Submit
 @router.post(
     "/submit",
     response_model=SubmissionResponse,
     summary="Create a new code submission"
 )
 async def submit_code(
-    submission_in: SubmissionCreate,
+    submission_in: SolutionSubmitRequest,
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ) -> Any:
@@ -33,7 +48,7 @@ async def submit_code(
     - **current_user**: The user data, injected by the auth dependency.
     """
 
-    result = await submission_service.create_and_run_submission(
+    result = await submission_service.submit_solution_service(
         db=db,
         submission_in=submission_in,
         user_id=current_user.user_id # Pass user id to the service
