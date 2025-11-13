@@ -8,9 +8,9 @@ from sqlalchemy.sql.expression import func
 async def get_problem_by_id(db:Session, problem_id: int):
     # using selectinload fetching problem and all its test_cases in one query
     query = (
-        select(ProblemBase)
-        .where(ProblemBase.problem_id == problem_id)
-        .options(selectinload(ProblemBase.test_cases))
+        select(Problems)
+        .where(Problems.problem_id == problem_id)
+        .options(selectinload(Problems.test_cases))
     )
 
     result = await db.execute(query)
@@ -35,12 +35,12 @@ async def get_random_problem_by_difficulty(db: Session,difficulty:str):
     # - Order by 'random()' to get a random one
 
     query = (
-        select(ProblemBase)
-        .where(ProblemBase.difficulty_level == difficulty)
-        .where(ProblemBase.is_active == True)
+        select(Problems)
+        .where(Problems.difficulty_level == difficulty)
+        .where(Problems.is_active == True)
         .order_by(func.random())
         .limit(1)
-        .options(selectinload(ProblemBase.test_cases))
+        .options(selectinload(Problems.test_cases))
     )
 
     # Execute the query

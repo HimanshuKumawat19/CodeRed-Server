@@ -27,7 +27,7 @@ class ProblemUpdate(BaseModel):
     points : Optional[int] = None
 
 # Response schema - add the fields into DB
-class ProblemResponse(BaseModel):
+class ProblemResponse(ProblemBase):
     problem_id : int
     acceptance_rate : float
     total_submission : int
