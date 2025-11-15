@@ -21,22 +21,30 @@ JUDGE0_URL = f"https://{RAPIDAPI_HOST}/submissions"
 
 # Fixes the 8-print bug from the free Judge0 Extra API for temperory
 def clean_stdout(stdout:str | None) -> str | None:
+    """
+    Safely cleans stdout from Judge0.
+    This specifically looks for and fixes the 8-repeat bug.
+    """
     if not stdout:
-        return None
-    
-    clean_str = stdout.rstrip('\n')
+        return ""  # Return an empty string if stdout is None
 
+    clean_str = stdout.strip()
     if not clean_str:
-        return None
-    
-    unit_length = len(clean_str)//8
+        return ""  # String was just whitespace
 
-    real_stdout = clean_str[0:unit_length]
+    total_len = len(clean_str)
 
-    # if not real_stdout.endswith('\n'):
-    #     real_stdout += '\n'
-    
-    return real_stdout
+    # --- Start of 8-print bug detection ---
+    if total_len > 0 and total_len % 8 == 0:
+        unit_length = total_len // 8
+        unit_1 = clean_str[0:unit_length]
+        unit_2 = clean_str[unit_length : unit_length * 2]
+        if unit_1 == unit_2:
+            return unit_1
+    # --- End of bug detection ---
+
+    # ✅ Always return the cleaned string if no bug found
+    return clean_str
 
 async def run_code_service(run_request: CodeRunRequest):
     """
@@ -162,13 +170,13 @@ async def submit_solution_service(
                 final_result = None
                 while True:
                     response = await client.get(
-                        f"{JUDGE0_URL}/{token}?base64_encoded=false)",
+                        f"{JUDGE0_URL}/{token}?base64_encoded=false",
                         headers=headers,
                         timeout=5.0
                     )
                     response.raise_for_status()
                     result = response.json()
-                    status_id = result.get("Status",{}).get("id")
+                    status_id = result.get("status",{}).get("id")
                     if status_id ==1 or status_id ==2:
                         await asyncio.sleep(1)
                         continue
@@ -189,7 +197,7 @@ async def submit_solution_service(
                 return new_submission
             
             verdict = final_result.get("status",{}).get("description","Error")
-            stdout = clean_stdout(final_result.get("stdout"))
+            stdout_clean = clean_stdout(final_result.get("stdout"))
 
             if verdict !="Accepted":
                 print(f"Test Cases{i+1} FAILED. Verdict: {verdict}")
@@ -199,10 +207,13 @@ async def submit_solution_service(
                 await db.commit()
                 return new_submission
             
-            if stdout.strip() != case.expected_output.strip():
+        
+            expected_clean = case.expected_output.strip() if case.expected_output else ""
+
+            if stdout_clean != expected_clean:
                 print(f"Test case {i+1} FAILED. Verdict: Wrong Answer")
                 new_submission.verdict = "Wrong Answer"
-                new_submission.stderr = f"Test Case {i+1} Failed. Expected: '{case.expected_output}', Got: '{stdout}'"
+                new_submission.stderr = f"Test Case {i+1} Failed. Expected: '{expected_clean}', Got: '{stdout_clean}'"
                 await db.commit()
                 return new_submission
             

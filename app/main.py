@@ -8,6 +8,7 @@ from app.models.submission import Submission
 from app.config import settings
 from app.database import engine, Base
 
+
 def create_application() -> FastAPI:
     """Application factory pattern for better testability"""
     app = FastAPI(
