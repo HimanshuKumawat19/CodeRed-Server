@@ -1,34 +1,47 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-import os
+from app.config import settings
 
-# Base class for models
 class Base(DeclarativeBase):
     pass
 
+
 def create_database_engine():
     """Create database engine with connection pooling for performance"""
-    database_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://postgres:password@localhost:5432/Codered"
-    ).replace("postgresql://", "postgresql+asyncpg://")
+
+    # ❗ USE SETTINGS, NOT os.getenv
+    database_url = settings.DATABASE_URL
+
+    # Convert sync style to asyncpg
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+
+    # Remove unsupported argument
+    database_url = database_url.replace("&channel_binding=require", "")
+
+    # Convert sslmode=require → ssl=require for asyncpg
+    database_url = database_url.replace("sslmode=require", "ssl=require")
+
+
+    print("DATABASE URL (DATABASE.PY) →", database_url)
 
     return create_async_engine(
         database_url,
-        echo=False,  # Set to false for production (better performance)
+        echo=False,
         pool_size=20,
         max_overflow=30,
-        pool_pre_ping=True # Better connection health checks
+        pool_pre_ping=True
     )
 
-# create engine and session factory
+
 engine = create_database_engine()
+
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
     autoflush=False
 )
+
 
 async def get_db():
     """Dependency to get database session"""

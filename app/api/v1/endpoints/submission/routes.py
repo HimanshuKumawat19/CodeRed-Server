@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Any
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 # Import Schemas
 from app.schemas.submission import CodeRunRequest,SolutionSubmitRequest, SubmissionResponse
 from app.schemas.user import UserResponse
@@ -60,3 +61,9 @@ async def submit_code(
     
     # All good!
     return result
+
+
+@router.get("/test-db")
+async def test_db(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(text("SELECT NOW()"))
+    return {"database_time": str(result.scalar_one())}

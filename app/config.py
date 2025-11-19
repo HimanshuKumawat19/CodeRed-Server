@@ -1,39 +1,33 @@
-import os
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://postgres:password@localhost:5432/codeforge"
-    )
+    DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/codeforge"
     
     # JWT
-    SECRET_KEY: str = os.getenv(
-        "SECRET_KEY", 
-        "your-super-secret-key-change-in-production"
-    )
+    SECRET_KEY: str = "your-super-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # Google OAuth
-    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
-    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
     
     # RapidAPI 
-    RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY"," ")
-    RAPIDAPI_HOST: str = os.getenv("RAPIDAPI_HOST"," ")
+    RAPIDAPI_KEY: str = ""
+    RAPIDAPI_HOST: str = ""
     
     # Application
     PROJECT_NAME: str = "CodeForge"
     VERSION: str = "1.0.0"
     DEBUG: bool = True
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    ENVIRONMENT: str = "development"
     
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 settings = Settings()
+
+print("CONFIG LOADED →", settings.DATABASE_URL)
