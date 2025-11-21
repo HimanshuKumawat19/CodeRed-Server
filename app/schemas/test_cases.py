@@ -1,25 +1,28 @@
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from typing import Optional,List,Any
 
-# For creating a new test case (Admin)
+# for SINGLE test case inside JSON
+class TestCaseItem(BaseModel):
+    input: str
+    output: str
+    hidden: bool = False
+
+# creating/updating the database
 class TestCasesCreate(BaseModel):
     problem_id: int
-    input_data: str
-    expected_output: str
-    is_hidden: bool = Field(False, description="False=Sample (visible), True=Hidden (for judging)")
+    test_cases: List[TestCaseItem]
 
-# For updating a test case (Admin)
 class TestCasesUpdate(BaseModel):
-    input_data: Optional[str] = None
-    expected_output: Optional[str] = None
-    is_hidden: Optional[bool] = None
-    
-# It correctly includes expected_output
+    test_cases: Optional[List[TestCaseItem]] = None
+
+# for frontend response
+class TestCasePublic(BaseModel):
+    input: str
+    output: str
+
 class TestCasesSampleResponse(BaseModel):
-    test_cases_id: int
-    input_data: str
-    expected_output: str
+    input: str
+    output: str
 
     class Config:
         from_attributes = True

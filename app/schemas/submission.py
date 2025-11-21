@@ -61,10 +61,8 @@ class CodeRunRequest(BaseModel):
         min_length=10
     )
     language_id: int
-    stdin: str = Field(
-        "",
-        description="Standard input for the code"
-    )
+    problem_id: int
+    stdin: Optional[str] = None
 
 class SolutionSubmitRequest(BaseModel):
     source_code: str = Field(...,min_length=10)
@@ -74,7 +72,7 @@ class SolutionSubmitRequest(BaseModel):
 
 class SubmissionResponse(SubmissionBase):
     """Full submission details sent back to the client"""
-    Submission_id: int
+    submission_id: int
     user_id: int
     verdict: str
     status_id: Optional[int] = None
@@ -98,7 +96,7 @@ class SubmissionResponse(SubmissionBase):
 
 class SubmissionSimpleResponse(BaseModel):
     """A lightweight response for lists"""
-    Submission_id: int
+    submission_id: int
     user_id: int
     problem_id: Optional[int] = None
     verdict: str

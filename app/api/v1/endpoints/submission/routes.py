@@ -25,7 +25,7 @@ async def run_code(
     run_request: CodeRunRequest,
     db: Session = Depends(get_db)
 ):
-    result = await submission_service.run_code_service(run_request)
+    result = await submission_service.run_code_service(db,run_request)
     if "error" in result:
         raise HTTPException(status_code=500,detail=result)
     return result

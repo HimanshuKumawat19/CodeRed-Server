@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from app.models.problems import Problems
-from app.models.test_cases import TestCases
 from sqlalchemy.sql.expression import func
 
 async def get_problem_by_id(db:Session, problem_id: int):
@@ -19,20 +18,22 @@ async def get_problem_by_id(db:Session, problem_id: int):
     if not problem:
         return None
     
-    # Manuaally filter the things for ONLY the sample cases
-    sample_cases = [
-        case for case in problem.test_cases if not case.is_hidden
-    ]
+    test_cases_row = problem.test_cases[0] if problem.test_cases else None
 
-    # attach this filtered list to the problem
-    # the 'ProblemResponse' schema will read 
+    sample_cases = []
+
+    if test_cases_row and test_cases_row.test_cases:
+        for case in test_cases_row.test_cases:
+            if case.get("hidden") is False:
+                sample_cases.append({
+                    "input": case.get("input"),
+                    "output": case.get("output")
+                })
+
     problem.sample_test_cases = sample_cases
-
     return problem
 
 async def get_random_problem_by_difficulty(db: Session,difficulty:str):
-    # Filter by the difficulty
-    # - Order by 'random()' to get a random one
 
     query = (
         select(Problems)
@@ -50,12 +51,17 @@ async def get_random_problem_by_difficulty(db: Session,difficulty:str):
     if not problem:
         return None
     
-    # filter only the sample cases
-    sample_cases = [
-        case for case in problem.test_cases if not case.is_hidden
-    ]
+    test_cases_row = problem.test_cases[0] if problem.test_cases else None
+    sample_cases = []
 
-    # attach the filtered list to the object
+    if test_cases_row and test_cases_row.test_cases:
+        for case in test_cases_row.test_cases:
+            if case.get("hidden") is False:
+                sample_cases.append({
+                    "input": case.get("input"),
+                    "output": case.get("output")
+                })
+    
     problem.sample_test_cases = sample_cases
     
     return problem

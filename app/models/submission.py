@@ -5,12 +5,12 @@ from app.database import Base
 class Submission(Base):
     __tablename__ = "submission"
 
-    Submission_id = Column(Integer,primary_key=True,index=True)
+    submission_id = Column(Integer,primary_key=True,index=True)
     # foreign key relationship
     user_id = Column(Integer,nullable=False, index=True)
     # Add relationship in future
     problem_id = Column(Integer,nullable=False, index=True)
-    match_id = Column(Integer,nullable=False, index=True)
+    match_id = Column(Integer,nullable=True, index=True)
     token = Column(String, unique=True, index=True, nullable=True)
     language_id = Column(Integer,nullable=False, index=True)
     source_code = Column(TEXT,nullable=False)

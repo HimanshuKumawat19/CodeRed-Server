@@ -16,7 +16,7 @@ class Problems(Base):
     points = Column(Integer,nullable=False,default=0)
     acceptance_rate = Column(Float,default=0,nullable=False)
     total_submission = Column(Integer,default=0,nullable=False)
-    successfull_submission = Column(Integer,default=0,nullable=False)
+    successful_submission = Column(Integer,default=0,nullable=False)
     is_active = Column(Boolean,default=True,nullable=False)
     test_cases = relationship("TestCases",back_populates="problem",cascade="all, delete-orphan")
     created_at = Column(DateTime(timezone=True),server_default=func.now())

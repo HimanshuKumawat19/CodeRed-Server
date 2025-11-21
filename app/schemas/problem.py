@@ -31,7 +31,7 @@ class ProblemResponse(ProblemBase):
     problem_id : int
     acceptance_rate : float
     total_submission : int
-    successfull_submission : int
+    successful_submission : int
     is_active : bool
     created_at : datetime
     updated_at : datetime
