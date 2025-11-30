@@ -15,9 +15,10 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
     
     # RapidAPI 
-    RAPIDAPI_KEY: str = ""
-    RAPIDAPI_HOST: str = ""
+    # RAPIDAPI_KEY: str = ""
+    # RAPIDAPI_HOST: str = ""
     
+    #JUDGE0_URL: str = "http://20.24.218.29:2358/submissions"
     # Application
     PROJECT_NAME: str = "CodeForge"
     VERSION: str = "1.0.0"

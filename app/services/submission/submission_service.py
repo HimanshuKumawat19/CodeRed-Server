@@ -1,296 +1,363 @@
-import httpx
 import asyncio
 import json
-import base64
-from sqlalchemy.orm import Session
+from typing import Any, Dict, List, Optional
+
+import httpx
 from sqlalchemy.future import select
+from sqlalchemy.orm import Session
 
-# --App Specific imports-- 
-# Import Database Model
+# -- App imports --
 from app.models.submission import Submission
-from app.models.problems import Problems
 from app.models.test_cases import TestCases
-# Import Pydantic Schemaas
-from app.schemas.submission import CodeRunRequest,SolutionSubmitRequest
-# Import app's settings
-from app.config import settings
+from app.schemas.submission import CodeRunRequest, SolutionSubmitRequest
 
-# -- Configuration for Judge0 --
-RAPIDAPI_KEY = settings.RAPIDAPI_KEY
-RAPIDAPI_HOST = settings.RAPIDAPI_HOST
-JUDGE0_URL = f"https://{RAPIDAPI_HOST}/submissions"
+# --------------------------
+# Piston Configuration
+# --------------------------
+PISTON_API_URL = "http://20.247.28.65:2000/api/v2/execute"
 
-# Fixes the 8-print bug from the free Judge0 Extra API for temperory
-def clean_stdout(stdout:str | None) -> str | None:
+# If your frontend still uses Judge0 language IDs,
+# map them to Piston language names here.
+LANGUAGE_MAP: Dict[int, str] = {
+    71: "python",      # Python 3
+    50: "c",           # C (GCC)
+    54: "c++",         # C++ (GCC)
+    62: "java",        # Java (OpenJDK)
+    63: "javascript",  # Node.js
+    # add more if needed
+}
+
+
+def get_piston_language(lang_id: int) -> str:
     """
-    Safely cleans stdout from Judge0.
-    This specifically looks for and fixes the 8-repeat bug.
+    Converts frontend language_id to a Piston language string.
+    Defaults to python if unknown.
     """
-    if not stdout:
-        return ""  # Return an empty string if stdout is None
+    return LANGUAGE_MAP.get(lang_id, "python")
 
-    clean_str = stdout.strip()
-    if not clean_str:
-        return ""  # String was just whitespace
 
-    total_len = len(clean_str)
-    # Fix 8-print bug
-    if total_len > 0 and total_len % 8 == 0:
-        unit_length = total_len // 8
-        unit_1 = clean_str[0:unit_length]
-        unit_2 = clean_str[unit_length : unit_length * 2]
-        if unit_1 == unit_2:
-            return unit_1
-            
-    return clean_str
+# --------------------------
+# Helper: Execute Single Test Case on Piston
+# --------------------------
+async def run_piston_job(
+    client: httpx.AsyncClient,
+    language: str,
+    code: str,
+    test_case: Dict[str, Any],
+    index: int,
+) -> Dict[str, Any]:
+    """
+    Runs a single test case against Piston and returns a normalized result dict.
 
-async def execute_judge0(client, source_code, language_id, stdin):
-    source_b64 = base64.b64encode(source_code.encode()).decode()
-    stdin_b64 = base64.b64encode(stdin.encode()).decode()
+    Returned dict fields:
+        index, status, passed, input, expected, actual, stderr, time, memory, hidden
+    """
+    stdin_input: str = test_case.get("input", "") or ""
+    expected_output: str = (test_case.get("output") or "").strip()
+    is_hidden: bool = bool(test_case.get("hidden", False))
 
     payload = {
-        "source_code": source_b64,
-        "language_id": language_id,
-        "stdin": stdin_b64,
-        "number_of_runs": 1
-    }
-
-    headers = {
-        "content-type": "application/json",
-        "X-RapidAPI-Key": RAPIDAPI_KEY,
-        "X-RapidAPI-Host": RAPIDAPI_HOST
+        "language": language,
+        "version": "*",  # latest version
+        "files": [{"content": code}],
+        "stdin": stdin_input,
+        # Piston run timeout is in milliseconds
+        "run_timeout": 3000,  # 3 seconds
     }
 
     try:
-        # --- CREATE SUBMISSION ---
-        create_resp = await client.post(
-            f"{JUDGE0_URL}?base64_encoded=true&wait=false",
-            json=payload,
-            headers=headers
-        )
-        create_resp.raise_for_status()
+        response = await client.post(PISTON_API_URL, json=payload)
+        response.raise_for_status()
+        data = response.json()
 
-        token = create_resp.json().get("token")
-        if not token:
-            return {"error": "No token returned by Judge0"}
+        run_stage: Dict[str, Any] = data.get("run", {}) or {}
+        compile_stage: Dict[str, Any] = data.get("compile", {}) or {}
 
-        # --- POLL FOR RESULT ---
-        while True:
-            poll_resp = await client.get(
-                f"{JUDGE0_URL}/{token}?base64_encoded=true",
-                headers=headers
-            )
-            poll_resp.raise_for_status()
+        # --------------------------
+        # 1. Compilation Error
+        # --------------------------
+        if compile_stage and compile_stage.get("code", 0) != 0:
+            return {
+                "index": index,
+                "status": "Compilation Error",
+                "passed": False,
+                "input": stdin_input,
+                "expected": expected_output,
+                "actual": "",
+                "stderr": compile_stage.get("stderr") or compile_stage.get("output", ""),
+                "time": float(compile_stage.get("cpu_time") or 0) / 1000.0,
+                "memory": int(compile_stage.get("memory") or 0),
+                "hidden": is_hidden,
+            }
 
-            result = poll_resp.json()
-            status_id = result.get("status", {}).get("id")
+        # --------------------------
+        # 2. Runtime / Logic
+        # --------------------------
+        actual_output: str = (run_stage.get("stdout") or "").strip()
+        stderr: str = run_stage.get("stderr") or ""
+        exit_code: int = run_stage.get("code", 0)
 
-            if status_id in (1, 2):  # In Queue, Processing
-                await asyncio.sleep(1)
-                continue
+        time_used = float(run_stage.get("cpu_time") or 0) / 1000.0  # ms → s
+        memory_used = int(run_stage.get("memory") or 0)
 
-            # Decode Base64
-            for field in ("stdout", "stderr", "compile_output"):
-                if result.get(field):
-                    result[field] = base64.b64decode(result[field]).decode('utf-8', "ignore")
+        status = "Accepted"
+        passed = True
 
-            # Clean stdout
-            result["stdout"] = clean_stdout(result.get("stdout"))
-            return result
+        if exit_code != 0:
+            status = "Runtime Error"
+            passed = False
+        elif actual_output != expected_output:
+            status = "Wrong Answer"
+            passed = False
+
+        return {
+            "index": index,
+            "status": status,
+            "passed": passed,
+            "input": stdin_input,
+            "expected": expected_output,
+            "actual": actual_output,
+            "stderr": stderr,
+            "time": time_used,
+            "memory": memory_used,
+            "hidden": is_hidden,
+        }
 
     except Exception as e:
-        return {"error": "Judge0 API Error", "detail": str(e)}
+        # System-level error (Piston unreachable, timeout, etc.)
+        return {
+            "index": index,
+            "status": "System Error",
+            "passed": False,
+            "input": stdin_input,
+            "expected": expected_output,
+            "actual": "",
+            "stderr": str(e),
+            "time": 0.0,
+            "memory": 0,
+            "hidden": is_hidden,
+        }
 
 
-async def run_code_service(db: Session, run_request: CodeRunRequest):
+# --------------------------
+# 1. RUN SERVICE (Public Only)
+# --------------------------
+async def run_code_service(db: Session, run_request: CodeRunRequest) -> Dict[str, Any]:
     """
-    Run API: 
-    1. Fetches test cases from DB.
-    2. Filters for ONLY Public (non-hidden) cases.
-    3. Runs ALL of them.
-    4. Returns detailed results for the Frontend.
+    RUN endpoint:
+      - Uses ONLY public test cases (hidden == False)
+      - Executes them in parallel on Piston
+      - Returns verdict + per-test-case results for frontend
     """
-    print(f"Executing 'Run' (Public Tests) for Problem {run_request.problem_id}")
+    print(f"[DEBUG] Starting run_code_service for problem {run_request.problem_id}")
+    print(f"[DEBUG] Piston URL: {PISTON_API_URL}")
+    print(f"Executing 'Run' (Piston) for Problem {run_request.problem_id}")
 
-    # 1. Fetch Test Cases from DB
+    # 1. Fetch Test Cases
     query = select(TestCases).where(TestCases.problem_id == run_request.problem_id)
     result = await db.execute(query)
-    test_case_record = result.scalars().first()
+    test_case_record: Optional[TestCases] = result.scalars().first()
 
     if not test_case_record or not test_case_record.test_cases:
-        return {"error": "Test cases not found for this problem"}
+        return {"error": "Test cases not found"}
 
-    # 2. Parse and Filter for PUBLIC (Hidden=False)
-    all_test_cases = test_case_record.test_cases
-    if isinstance(all_test_cases, str):
-        all_test_cases = json.loads(all_test_cases)
+    all_cases = test_case_record.test_cases
+    if isinstance(all_cases, str):
+        all_cases = json.loads(all_cases)
 
-    # Filter: Keep only where hidden is False (or doesn't exist)
-    public_test_cases = [tc for tc in all_test_cases if tc.get("hidden", False) is False]
+    # Filter public only
+    public_cases = [tc for tc in all_cases if not tc.get("hidden", False)]
+    if not public_cases:
+        return {"error": "No public test cases found."}
 
-    if not public_test_cases:
-        return {"error": "No public test cases found to run."}
+    language_name = get_piston_language(run_request.language_id)
 
-    # 3. Execution Loop
-    run_results = []
-    all_passed = True
-    
-    async with httpx.AsyncClient() as client:
-        for i, case in enumerate(public_test_cases):
-            input_data = case.get("input")
-            expected_output = case.get("output", "").strip()
-            
-            # Run the Code
-            api_result = await execute_judge0(
-                client, 
-                run_request.source_code, 
-                run_request.language_id, 
-                input_data
+    print(f"[DEBUG] Found {len(public_cases)} public test cases")
+    print(f"[DEBUG] Starting parallel execution...")
+    # 2. Run all public cases in parallel
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        tasks = [
+            run_piston_job(
+                client=client,
+                language=language_name,
+                code=run_request.source_code,
+                test_case=case,
+                index=i + 1,
             )
+            for i, case in enumerate(public_cases)
+        ]
+        results = await asyncio.gather(*tasks)
 
-            # Extract Details
-            if "error" in api_result:
-                return {"error": "System Error", "detail": api_result.get("detail")}
+    # 3. Aggregate results for frontend
+    formatted_results: List[Dict[str, Any]] = []
+    final_verdict = "Accepted"
 
-            stdout_actual = api_result.get("stdout", "")
-            stderr = api_result.get("stderr", "")
-            compile_output = api_result.get("compile_output", "")
-            verdict = api_result.get("status", {}).get("description")
+    for res in results:
+        status = res["status"]
+        if not res["passed"]:
+            # Verdict priority for RUN:
+            # Compilation Error > Runtime Error > Wrong Answer > System Error
+            if final_verdict == "Accepted":
+                final_verdict = status
+            elif final_verdict == "Wrong Answer" and status in (
+                "Runtime Error",
+                "Compilation Error",
+            ):
+                final_verdict = status
+            elif final_verdict == "Runtime Error" and status == "Compilation Error":
+                final_verdict = status
 
-            # Check Logic
-            status = "Passed"
-            if verdict != "Accepted":
-                status = "Error" # Runtime Error, Compilation Error, etc.
-                all_passed = False
-            elif stdout_actual != expected_output:
-                status = "Failed" # Wrong Answer
-                all_passed = False
-
-            # Append detailed result for this test case
-            run_results.append({
-                "test_case_index": i + 1,
+        formatted_results.append(
+            {
+                "test_case_index": res["index"],
                 "status": status,
-                "input": input_data,
-                "expected_output": expected_output,
-                "actual_output": stdout_actual,
-                "stderr": stderr,
-                "compile_output": compile_output
-            })
+                "input": res["input"],
+                "expected_output": res["expected"],
+                "actual_output": res["actual"],
+                "stderr": res["stderr"],
+            }
+        )
 
-    # 4. Final Response
+    # If some error but not classified above, fallback to generic
+    if final_verdict == "Accepted" and any(not r["passed"] for r in results):
+        final_verdict = "Wrong Answer"
+
+    print(f"[DEBUG] Execution complete!")
+
     return {
-        "verdict": "Accepted" if all_passed else "Wrong Answer",
-        "total_public_cases": len(public_test_cases),
-        "results": run_results
+        "verdict": final_verdict,
+        "total_public_cases": len(public_cases),
+        "results": formatted_results,
     }
-        
 
-# For /submit endpoint
+
+# --------------------------
+# 2. SUBMIT SERVICE (All Cases)
+# --------------------------
 async def submit_solution_service(
-    db:Session, 
-    submission_in:SolutionSubmitRequest,
-    user_id: int
-):
-    # runs code against hidden test cases and saves to the database
-    # for "Submit"
+    db: Session, submission_in: SolutionSubmitRequest, user_id: int
+) -> Submission | Dict[str, Any]:
+    """
+    SUBMIT endpoint:
+      - Uses ALL test cases (public + hidden)
+      - Executes them in parallel on Piston
+      - Stores a Submission row with final verdict & basic info
+      - Returns the Submission instance
+    """
+    print(f"Executing 'Submit' (Piston) for Problem {submission_in.problem_id}")
 
-    print(f"Executing a 'Submit for problem {submission_in.problem_id} by user {user_id}...")
-
-    query = (
-        select(TestCases)
-        .where(TestCases.problem_id == submission_in.problem_id)
-    )
+    # 1. Fetch all test cases
+    query = select(TestCases).where(TestCases.problem_id == submission_in.problem_id)
     result = await db.execute(query)
-    test_case_record = result.scalars().first()
+    test_case_record: Optional[TestCases] = result.scalars().first()
 
     if not test_case_record or not test_case_record.test_cases:
-        return {"error":"Test cases not found for this problem"}
+        return {"error": "Test cases not found"}
 
-    # Ensure test_cases is a list (SQLAlchemy + JSONB usually returns a Python list directly)
-    all_test_cases = test_case_record.test_cases
-    # Fallback if it comes as string (rare with JSONB type but possible)
-    if isinstance(all_test_cases,str):
-        all_test_cases = json.loads(all_test_cases)
+    all_cases = test_case_record.test_cases
+    if isinstance(all_cases, str):
+        all_cases = json.loads(all_cases)
 
-    #Create the Submission Record 
+    # 2. Create initial Submission record (Judging)
     new_submission = Submission(
         user_id=user_id,
         language_id=submission_in.language_id,
         source_code=submission_in.source_code,
         problem_id=submission_in.problem_id,
         verdict="Judging",
-        total_test_cases=len(all_test_cases),
-        test_cases_passed=0
+        total_test_cases=len(all_cases),
+        test_cases_passed=0,
     )
-    try:
-        db.add(new_submission)
-        await db.commit()
-        await db.refresh(new_submission)
-    except Exception as e:
-        await db.rollback()
-        return {"error":f"Failed to create submission record: {e}"}
-    
-    # Execution Loop
-    final_verdict = "Accepted"
-    error_message = None
+    db.add(new_submission)
+    await db.commit()
+    await db.refresh(new_submission)
 
-    async with httpx.AsyncClient() as client:
-        for i, case in enumerate(all_test_cases):
-            input_data = case.get("input")
-            expected_output = case.get("output","").strip()
-            is_hidden = case.get("hidden",False)
+    # 3. Execute ALL test cases in parallel
+    language_name = get_piston_language(submission_in.language_id)
 
-            print(f"Running test case {i+1}/{len(all_test_cases)} (Hidden : {is_hidden})")
-
-            # Run code
-            result = await execute_judge0(
-                client,
-                submission_in.source_code,
-                submission_in.language_id,
-                input_data
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        tasks = [
+            run_piston_job(
+                client=client,
+                language=language_name,
+                code=submission_in.source_code,
+                test_case=case,
+                index=i + 1,
             )
+            for i, case in enumerate(all_cases)
+        ]
+        results = await asyncio.gather(*tasks)
 
-            time_value = result.get("time")
-            memory_value = result.get("memory")
+    # 4. Determine final verdict & error message
+    final_verdict = "Accepted"
+    error_message: Optional[str] = None
+    passed_count = 0
+    max_time = 0.0
+    max_memory = 0
 
-            new_submission.execution_time = float(time_value) if time_value is not None else 0.0
-            new_submission.memory_used = int(float(memory_value)) if memory_value is not None else 0
-   
-            if "error" in result:
-                final_verdict = "System Error"
-                error_message = result.get("detail","Unknown API Error")
-                break
+    # Priority: Compilation Error > Runtime Error > Wrong Answer > System Error > Accepted
+    def verdict_priority(status: str) -> int:
+        order = {
+            "Compilation Error": 4,
+            "Runtime Error": 3,
+            "Wrong Answer": 2,
+            "System Error": 1,
+            "Accepted": 0,
+        }
+        return order.get(status, 0)
 
-            judge_verdict = result.get("status",{}).get("description")
-            stdout_clean = result.get("stdout","")
+    worst_result: Optional[Dict[str, Any]] = None
 
-            if judge_verdict != "Accepted":
-                final_verdict = judge_verdict  # e.g. 'Runtime Error'
+    for i, res in enumerate(results):
+        # track time/memory
+        max_time = max(max_time, float(res.get("time") or 0.0))
+        max_memory = max(max_memory, int(res.get("memory") or 0))
 
-                # SECURITY: If hidden, don't show stderr (might leak info)
-                if is_hidden:
-                    error_message = "Runtime Error on Hidden Test Case"
-                else:
-                    error_message = result.get("stderr") or result.get("compile_output")
-                break
+        if res["passed"]:
+            passed_count += 1
+            continue
 
-            if stdout_clean != expected_output:
-                final_verdict = "Wrong Answer"
+        # Compare priority and keep "worst" failure
+        if worst_result is None or verdict_priority(res["status"]) > verdict_priority(
+            worst_result["status"]
+        ):
+            worst_result = res
 
-                # SECURITY: If hidden, generic message. If public, show diff.
-                if is_hidden:
-                    error_message = "Wrong Answer on Hidden Test Case"
-                else:
-                    error_message = f"Test Case {i+1} Failed.\nExpected: '{expected_output}'\nGot: '{stdout_clean}"
-                break
+    if worst_result is None:
+        # All passed
+        final_verdict = "Accepted"
+    else:
+        status = worst_result["status"]
+        final_verdict = status
+        is_hidden = bool(worst_result.get("hidden", False))
 
-            # Success for this case   
-            new_submission.test_cases_passed = i+1
+        if is_hidden:
+            error_message = f"{status} on Hidden Test Case"
+        else:
+            if status == "Compilation Error":
+                error_message = worst_result.get("stderr") or "Compilation Error"
+            elif status == "Wrong Answer":
+                error_message = (
+                    f"Test Case {worst_result['index']} Failed. "
+                    f"Expected '{worst_result.get('expected')}', "
+                    f"but got '{worst_result.get('actual')}'."
+                )
+            elif status == "Runtime Error":
+                error_message = worst_result.get("stderr") or "Runtime Error"
+            else:
+                error_message = status
 
-    print(f"Final Verdict: {final_verdict}")
+    # 5. Update submission in DB
     new_submission.verdict = final_verdict
     new_submission.stderr = error_message
-    
+    new_submission.test_cases_passed = passed_count
+
+    # These fields may or may not exist in your model; if they do, we set them.
+    if hasattr(new_submission, "execution_time"):
+        new_submission.execution_time = max_time
+    if hasattr(new_submission, "memory_used"):
+        new_submission.memory_used = max_memory
 
     await db.commit()
+    await db.refresh(new_submission)
     return new_submission
