@@ -1,4 +1,4 @@
-#!E:\CodeRed-Server\CodeRed-Server\venv\Scripts\python.exe
+#!E:\Projects\CodeRed Server\CodeRed-Server\venv\Scripts\python.exe
 # coding: utf-8
 
 """
