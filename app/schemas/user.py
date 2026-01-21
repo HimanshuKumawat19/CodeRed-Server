@@ -1,7 +1,21 @@
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional
+from typing import Optional,List
 from datetime import datetime, date
 import re
+
+# For showing users
+class UserListItem(BaseModel):
+    user_id: int
+    username: str
+
+    class Config:
+        orm_mode = True
+
+
+class PaginatedUsers(BaseModel):
+    users: List[UserListItem]
+    next_cursor: Optional[int]
+
 
 class UserBase(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9_]+$')

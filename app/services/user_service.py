@@ -9,7 +9,7 @@ from app.schemas.user import UserProfileUpdate  # This import should work now
 
 class UserService:
     """Service for user profile management"""
-    
+
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
         """Get user by email"""
@@ -36,8 +36,8 @@ class UserService:
 
     @staticmethod
     async def complete_user_profile(
-        db: AsyncSession, 
-        user_id: int, 
+        db: AsyncSession,
+        user_id: int,
         profile_data: UserProfileUpdate
     ) -> Optional[User]:
         """Complete user profile after registration"""
@@ -45,7 +45,7 @@ class UserService:
             # Get user
             result = await db.execute(select(User).where(User.user_id == user_id))
             user = result.scalar_one_or_none()
-            
+
             if not user:
                 return None
 
@@ -65,11 +65,11 @@ class UserService:
 
             # Mark profile as complete
             user.profile_complete = True
-            
+
             await db.commit()
             await db.refresh(user)
             return user
-            
+
         except Exception as e:
             await db.rollback()
             raise e
@@ -80,7 +80,32 @@ class UserService:
         from sqlalchemy.sql import func
         result = await db.execute(select(User).where(User.user_id == user_id))
         user = result.scalar_one_or_none()
-        
+
         if user:
             user.last_login = func.now()
             await db.commit()
+
+    @staticmethod
+    async def get_users_paginated(
+        db: AsyncSession,
+        limit: int,
+        cursor: int,
+        current_user_id: int
+    ):
+        stmt = (
+            select(User)
+            .where(
+                and_(
+                    User.user_id > cursor,
+                    User.user_id != current_user_id
+                )
+            )
+            .order_by(User.user_id)
+            .limit(limit)
+        )
+
+        result = await db.execute(stmt)
+        users = result.scalars().all()
+
+        next_cursor = users[-1].user_id if users else None
+        return users, next_cursor
