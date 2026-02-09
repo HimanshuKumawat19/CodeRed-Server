@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.models.user import User
 from app.models.submission import Submission
+from app.core.websocket import websocket_endpoint
 
 
 from app.config import settings
@@ -31,35 +32,35 @@ def create_application() -> FastAPI:
 
 def setup_middleware(app: FastAPI) -> None:
     """setup all middleware"""
-    
+
     # Allow both your frontend URLs
     origins = [
-        "http://localhost:3000",      # Local development
-        "http://127.0.0.1:3000",      # Local development
-        "https://ec3d0556de7f.ngrok-free.app",  # Your ngrok URL
-        "https://*.ngrok-free.app",
-        "http://localhost:8000",      # Backend itself
-        # Add your actual frontend domain if deployed
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://ec3d0556de7f.ngrok-free.app",
+        "http://localhost:8000",
+
     ]
-    
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
-        allow_credentials=True,  # Important for cookies/tokens
-        allow_methods=["*"],     # Allow all methods
-        allow_headers=["*"],     # Allow all headers
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
 def setup_routes(app: FastAPI) -> None:
     """Setup all API routes"""
-    
-    # REST API only - no GraphQL!
+
+    # REST API
     from app.api.v1.endpoints import auth
     from app.api.v1.endpoints import submission
     from app.api.v1.endpoints import problem
+    from app.api.v1.endpoints import users
     # authentication APIs
     app.include_router(
-        auth.router, 
+        auth.router,
         prefix="/api/v1",
         tags=["Auth"]
     )
@@ -75,28 +76,34 @@ def setup_routes(app: FastAPI) -> None:
         prefix="/api/v1",
         tags=["Problems"]
     )
+    # User APIs
+    app.include_router(
+        users.router,
+        prefix="/api/v1",
+        tags=["users"]
+    )
 def setup_events(app: FastAPI) -> None:
     """Setup startup/shutdown events"""
-    
+
     @app.on_event("startup")
     async def startup_event():
-        
+
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        print("✅ Database tables created successfully")
-    
+        print(" Database tables created successfully")
+
     @app.get("/")
     async def root():
         return {
             "message": "CodeForge API is running!",
             "version": settings.VERSION,
             "docs": "/docs"
-            # Removed "graphql" reference
         }
-    
+
     @app.get("/health")
     async def health_check():
         return {"status": "healthy", "service": "CodeForge API"}
 
-# Create app instance
 app = create_application()
+
+app.add_api_websocket_route("/ws",websocket_endpoint)

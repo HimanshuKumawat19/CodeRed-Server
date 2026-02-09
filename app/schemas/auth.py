@@ -28,7 +28,7 @@ class ProfileCompletionRequest(BaseModel):
     preferred_language: str = Field(..., max_length=20)
 
 class AuthResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str]
     token_type: str = "bearer"
     user_id: int
     profile_complete: bool

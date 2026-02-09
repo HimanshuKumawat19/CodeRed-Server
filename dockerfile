@@ -7,7 +7,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- Final Stage ---
+
 # This stage is clean. It just copies the installed packages and app code
 FROM python:3.11-slim
 
@@ -19,7 +19,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy your application code
+# Copy our application code
 COPY . .
 
 EXPOSE 8000
