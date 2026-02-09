@@ -22,7 +22,7 @@ def create_database_engine():
     database_url = database_url.replace("sslmode=require", "ssl=require")
 
 
-    print("DATABASE URL (DATABASE.PY) →", database_url)
+    #print("DATABASE URL (DATABASE.PY) →", database_url)
 
     return create_async_engine(
         database_url,
