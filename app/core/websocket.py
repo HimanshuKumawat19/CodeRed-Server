@@ -4,7 +4,6 @@ from app.services.auth_service import AuthService
 from app.database import get_db
 from app.core.ws_manager import ConnectionManager
 
-
 manager = ConnectionManager()
 
 async def websocket_endpoint(websocket: WebSocket):
