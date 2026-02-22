@@ -5,7 +5,7 @@ from app.database import get_db
 from app.core.auth import get_current_user
 from app.services.user_service import UserService
 from app.services.auth_service import AuthService
-from app.services.email_service import EmailService
+# from app.services.email_service import EmailService
 from app.schemas.auth import ProfileCompletionRequest, AuthResponse
 from app.schemas.user import UserProfileUpdate  # Fixed import
 from app.models.user import User
@@ -21,13 +21,13 @@ async def complete_profile(
     """Complete user profile after registration"""
     # Check if username is available
     username_exists = await UserService.check_username_exists(db, profile_data.username)
-    
+
     if username_exists and current_user.username != profile_data.username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
-    
+
     # Convert to UserProfileUpdate schema
     profile_update = UserProfileUpdate(
         username=profile_data.username,
@@ -37,24 +37,24 @@ async def complete_profile(
         bio=profile_data.bio,
         preferred_language=profile_data.preferred_language
     )
-    
+
     # Complete profile
     updated_user = await UserService.complete_user_profile(
         db, current_user.user_id, profile_update
     )
-    
+
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to complete profile"
         )
-    
+
     # Generate new tokens with updated user info
     tokens = AuthService.create_user_tokens(updated_user.user_id)
-    
+
     # Send welcome email
-    await EmailService.send_welcome_email(updated_user.email, updated_user.username)
-    
+    # await EmailService.send_welcome_email(updated_user.email, updated_user.username)
+
     return AuthResponse(
         access_token=tokens["access_token"],
         token_type=tokens["token_type"],
