@@ -31,4 +31,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-print("CONFIG LOADED →", settings.DATABASE_URL)
+# print("CONFIG LOADED →", settings.DATABASE_URL)

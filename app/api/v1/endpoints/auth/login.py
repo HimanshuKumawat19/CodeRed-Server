@@ -23,9 +23,9 @@ async def login(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found. Please register first."
         )
-
     # Authenticate user
     user = await AuthService.authenticate_user(db, login_data.email, login_data.password)
+    # print(user)
 
     if not user:
         raise HTTPException(
@@ -38,7 +38,6 @@ async def login(
 
     # Generate tokens
     tokens = AuthService.create_user_tokens(user.user_id)
-
     response.set_cookie(
         key="access_token",
         value=tokens["access_token"],

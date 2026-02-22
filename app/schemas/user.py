@@ -7,7 +7,7 @@ import re
 class UserListItem(BaseModel):
     user_id: int
     username: str
-
+    current_rank: str
     class Config:
         orm_mode = True
 
