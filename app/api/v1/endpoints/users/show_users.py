@@ -28,5 +28,3 @@ async def list_users(
         "next_cursor": next_cursor
     }
 
-# @router.get("/my_friends", response_model = )
-# async def list_friends()

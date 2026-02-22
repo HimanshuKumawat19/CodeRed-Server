@@ -10,5 +10,6 @@ class Friend(Base):
     friend_id = Column("friend_id",Integer,ForeignKey("user.id"),nullable=False)
     status = Column("status",String,default="Pending",nullable= False)
     is_blocked = Column("is_blocked",Boolean,default = False,nullable=False)
+    friend_username = Column(String,nullable=False)
     requested_date = Column("requested_date",DateTime(timezone=True),server_default = func.now(),nullable = False)
     accepted_date = Column("accepted_date",DateTime(timezone=True),nullable = True)

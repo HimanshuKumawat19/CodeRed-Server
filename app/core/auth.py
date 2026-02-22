@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.user import User
 from app.services.auth_service import AuthService
 
-async def get_current_user(
+async def get_current_user_id(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> User:
@@ -23,12 +23,8 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
 
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     if user_id is None:
         raise credentials_exception
 
-    user = await AuthService.get_user_by_id(db, int(user_id))
-    if not user:
-        raise credentials_exception
-
-    return user
+    return user_id
