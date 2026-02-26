@@ -55,9 +55,9 @@ def setup_routes(app: FastAPI) -> None:
 
     # REST API
     from app.api.v1.endpoints import auth
-    # from app.api.v1.endpoints import submission
-    # from app.api.v1.endpoints import problem
-    # from app.api.v1.endpoints import users
+    from app.api.v1.endpoints import submission
+    from app.api.v1.endpoints import problem
+    from app.api.v1.endpoints import users
     from app.api.v1.endpoints import friends
     # authentication APIs
     app.include_router(
@@ -65,24 +65,24 @@ def setup_routes(app: FastAPI) -> None:
         prefix="/api/v1",
         tags=["Auth"]
     )
-    # # code Submission APIs
-    # app.include_router(
-    #     submission.router,
-    #     prefix="/api/v1/submission",
-    #     tags=["Submissions"]
-    # )
-    # # problem APIs
-    # app.include_router(
-    #     problem.router,
-    #     prefix="/api/v1",
-    #     tags=["Problems"]
-    # )
-    # # User APIs
-    # app.include_router(
-    #     users.router,
-    #     prefix="/api/v1",
-    #     tags=["users"]
-    # )
+    # code Submission APIs
+    app.include_router(
+        submission.router,
+        prefix="/api/v1/submission",
+        tags=["Submissions"]
+    )
+    # problem APIs
+    app.include_router(
+        problem.router,
+        prefix="/api/v1",
+        tags=["Problems"]
+    )
+    # User APIs
+    app.include_router(
+        users.router,
+        prefix="/api/v1",
+        tags=["users"]
+    )
     # # Friends ID
     app.include_router(
         friends.router,

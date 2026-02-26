@@ -6,8 +6,8 @@ class Friend(Base):
     __tablename__ = "friends"
 
     friendship_id = Column("friendship_id",Integer,primary_key=True,index = True)
-    user_id = Column("user_id",Integer,ForeignKey("user.id"),index=True,nullable=False)
-    friend_id = Column("friend_id",Integer,ForeignKey("user.id"),nullable=False)
+    user_id = Column("user_id",Integer,ForeignKey("users.user_id"),index=True,nullable=False)
+    friend_id = Column("friend_id",Integer,ForeignKey("users.user_id"),nullable=False)
     status = Column("status",String,default="Pending",nullable= False)
     is_blocked = Column("is_blocked",Boolean,default = False,nullable=False)
     friend_username = Column(String,nullable=False)

@@ -85,3 +85,5 @@ class AuthService:
         """Get user by ID"""
         result = await db.execute(select(User).where(User.user_id == user_id))
         return result.scalar_one_or_none()
+    
+    
