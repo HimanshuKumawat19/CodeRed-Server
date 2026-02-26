@@ -8,10 +8,10 @@ from app.schemas.submission import CodeRunRequest,SolutionSubmitRequest, Submiss
 from app.schemas.user import UserResponse
 
 # Import service
-from app.services.submission import submission_service
+from app.services import submission_service
 
 # Import dependencies (auth and db)
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_id
 from app.database import get_db
 
 router = APIRouter()
@@ -39,7 +39,7 @@ async def run_code(
 async def submit_code(
     submission_in: SolutionSubmitRequest,
     db: Session = Depends(get_db),
-    current_user: UserResponse = Depends(get_current_user)
+    user_id: int = Depends(get_current_user_id)
 ) -> Any:
     """
     Receives code from frontend,send to submission service to be
@@ -52,7 +52,7 @@ async def submit_code(
     result = await submission_service.submit_solution_service(
         db=db,
         submission_in=submission_in,
-        user_id=current_user.user_id # Pass user id to the service
+        user_id=user_id # Pass user id to the service
     )
 
     # Check if the service returned an error

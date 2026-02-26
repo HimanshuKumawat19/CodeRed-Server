@@ -1,6 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
 
-class FriendOut(BaseModel):
+class FriendCreate(BaseModel):
+
+    user_id:Optional[int] = Field(None)
+    friend_id: int = Field(...)
+    friend_username: str =Field(None)
+
+
+class FriendResponse(BaseModel):
     # friendship_id: int
     # user_id: int
     friend_id: int
@@ -9,4 +18,3 @@ class FriendOut(BaseModel):
     
     class Config:
         from_attributes = True
-

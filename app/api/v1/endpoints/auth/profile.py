@@ -2,12 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_id
 from app.services.user_service import UserService
 from app.services.auth_service import AuthService
-# from app.services.email_service import EmailService
 from app.schemas.auth import ProfileCompletionRequest, AuthResponse
-from app.schemas.user import UserProfileUpdate  # Fixed import
+from app.schemas.user import UserProfileUpdate, UserResponse
 from app.models.user import User
 
 router = APIRouter()
@@ -15,14 +14,14 @@ router = APIRouter()
 @router.post("/complete-profile", response_model=AuthResponse)
 async def complete_profile(
     profile_data: ProfileCompletionRequest,
-    current_user: User = Depends(get_current_user),
+    user_id: User = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """Complete user profile after registration"""
     # Check if username is available
     username_exists = await UserService.check_username_exists(db, profile_data.username)
 
-    if username_exists and current_user.username != profile_data.username:
+    if username_exists and username_exists.username != profile_data.username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
@@ -40,7 +39,7 @@ async def complete_profile(
 
     # Complete profile
     updated_user = await UserService.complete_user_profile(
-        db, current_user.user_id, profile_update
+        db, user_id, profile_update
     )
 
     if not updated_user:
@@ -62,3 +61,12 @@ async def complete_profile(
         profile_complete=True,
         message="Profile completed successfully!"
     )
+
+@router.get("/me")
+async def get_current_user_profile(
+    user_id: int = Depends(get_current_user_id),
+    response_model = UserResponse,
+    db: AsyncSession = Depends(get_db)
+):
+    user = await UserService.get_user_by_user_id(db,user_id)
+    return user
