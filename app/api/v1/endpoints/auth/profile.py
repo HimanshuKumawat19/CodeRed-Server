@@ -7,7 +7,7 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 # from app.services.email_service import EmailService
 from app.schemas.auth import ProfileCompletionRequest, AuthResponse
-from app.schemas.user import UserProfileUpdate  # Fixed import
+from app.schemas.user import UserProfileUpdate  
 from app.models.user import User
 
 router = APIRouter()
