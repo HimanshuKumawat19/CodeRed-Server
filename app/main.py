@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models.user import User
 from app.models.submission import Submission
 from app.core.websocket import websocket_endpoint
-
+import app.core.cloudinary
 
 from app.config import settings
 from app.database import engine, Base
